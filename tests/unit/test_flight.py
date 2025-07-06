@@ -628,3 +628,25 @@ def test_stability_static_margins(
         assert np.all(moments / wind_sign <= 0)
     else:  # static_margin == 0
         assert np.all(np.abs(moments) <= 1e-10)
+
+
+def test_flight_drag_uses_altitude(simple_rocket_2d_drag, example_plain_env):
+    flight = Flight(
+        environment=example_plain_env,
+        rocket=simple_rocket_2d_drag,
+        rail_length=1,
+        inclination=90,
+        heading=0,
+        terminate_on_apogee=False,
+    )
+
+    record = []
+
+    def drag(mach, alt):
+        record.append((mach, alt))
+        return 0.3
+
+    simple_rocket_2d_drag.power_on_drag.set_source(drag)
+    state = [0, 0, 1000, 10, 0, 0, 1, 0, 0, 0, 0, 0, 0]
+    flight.udot_rail1(0, state)
+    assert record[-1][1] == 1000

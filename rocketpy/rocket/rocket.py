@@ -240,13 +240,13 @@ class Rocket:
             entry to the Function class. See help(Function) for more
             information. If int or float is given, it is assumed constant. If
             callable, string or array is given, it must be a function of Mach
-            number only.
+            number or a function of Mach number and altitude.
         power_on_drag : int, float, callable, string, array
             Rocket's drag coefficient when the motor is on. Can be given as an
             entry to the Function class. See help(Function) for more
             information. If int or float is given, it is assumed constant. If
             callable, string or array is given, it must be a function of Mach
-            number only.
+            number or a function of Mach number and altitude.
         center_of_mass_without_motor : int, float
             Position, in m, of the rocket's center of mass without motor
             relative to the rocket's coordinate system. Default is 0, which
@@ -336,20 +336,33 @@ class Rocket:
         )
 
         # Define aerodynamic drag coefficients
-        self.power_off_drag = Function(
-            power_off_drag,
-            "Mach Number",
-            "Drag Coefficient with Power Off",
-            "linear",
-            "constant",
-        )
-        self.power_on_drag = Function(
-            power_on_drag,
-            "Mach Number",
-            "Drag Coefficient with Power On",
-            "linear",
-            "constant",
-        )
+        self.power_off_drag = Function(power_off_drag)
+        self.power_off_drag.set_interpolation("linear")
+        self.power_off_drag.set_extrapolation("constant")
+        dim_off = self.power_off_drag.get_domain_dim()
+        if dim_off == 1:
+            self.power_off_drag.set_inputs(["Mach Number"])
+        elif dim_off == 2:
+            self.power_off_drag.set_inputs(["Mach Number", "Altitude (m)"])
+        else:
+            raise TypeError(
+                "power_off_drag must depend on Mach number or Mach number and altitude"
+            )
+        self.power_off_drag.set_outputs("Drag Coefficient with Power Off")
+
+        self.power_on_drag = Function(power_on_drag)
+        self.power_on_drag.set_interpolation("linear")
+        self.power_on_drag.set_extrapolation("constant")
+        dim_on = self.power_on_drag.get_domain_dim()
+        if dim_on == 1:
+            self.power_on_drag.set_inputs(["Mach Number"])
+        elif dim_on == 2:
+            self.power_on_drag.set_inputs(["Mach Number", "Altitude (m)"])
+        else:
+            raise TypeError(
+                "power_on_drag must depend on Mach number or Mach number and altitude"
+            )
+        self.power_on_drag.set_outputs("Drag Coefficient with Power On")
 
         # Create a, possibly, temporary empty motor
         # self.motors = Components()  # currently unused, only 1 motor is supported

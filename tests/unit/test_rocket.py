@@ -655,3 +655,9 @@ def test_coordinate_system_orientation(
     static_margin_nose_to_tail = rocket_nose_to_tail.static_margin
 
     assert np.array_equal(static_margin_tail_to_nose, static_margin_nose_to_tail)
+
+
+def test_rocket_init_with_2d_drag(simple_rocket_2d_drag):
+    assert simple_rocket_2d_drag.power_on_drag.get_domain_dim() == 2
+    cd = simple_rocket_2d_drag.power_on_drag.get_value_opt(1, 1000)
+    assert cd == pytest.approx(0.2)

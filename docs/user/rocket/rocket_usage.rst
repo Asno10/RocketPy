@@ -81,8 +81,10 @@ The drag curves can be defined in two ways:
 2. Passing in a function that returns the drag coefficient given the Mach
    number.
 
-Curves defined in CSV files must have the first column as the Mach number
-and the second column as the drag coefficient.
+Curves defined in CSV files may contain two or three columns. If two columns
+are given, the first must be the Mach number and the second the drag
+coefficient. If three columns are provided, they must be Mach number,
+altitude in meters and drag coefficient, respectively.
 Here is an example of a drag curve file:
 
 .. code-block::
@@ -98,6 +100,15 @@ Here is an example of a drag curve file:
     0.8, 0.40110651
     0.9, 0.45696342
     1.0, 0.62744566
+
+For altitude based curves the file should look like:
+
+.. code-block::
+
+    0.0, 0, 0.5
+    0.0, 1000, 0.4
+    1.0, 0, 0.3
+    1.0, 1000, 0.2
 
 .. tip::
     Getting a drag curve can be a challenging task. To get really accurate
