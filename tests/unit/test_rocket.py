@@ -655,3 +655,17 @@ def test_coordinate_system_orientation(
     static_margin_nose_to_tail = rocket_nose_to_tail.static_margin
 
     assert np.array_equal(static_margin_tail_to_nose, static_margin_nose_to_tail)
+
+
+def test_rocket_init_with_2d_drag(simple_rocket_2d_drag):
+    assert simple_rocket_2d_drag.power_on_drag.get_domain_dim() == 2
+    cd = simple_rocket_2d_drag.power_on_drag.get_value_opt(1, 1000)
+    assert cd == pytest.approx(0.2)
+
+
+def test_add_ballast_updates_mass_and_cm(calisto_motorless):
+    rocket = calisto_motorless
+    rocket.add_ballast(mass_each=1.0, number=2, position=1.0)
+    assert rocket.mass == pytest.approx(16.426)
+    expected_cm = (0 * 14.426 + 2 * 1.0) / 16.426
+    assert rocket.center_of_mass_without_motor == pytest.approx(expected_cm)

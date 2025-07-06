@@ -2,6 +2,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from ..tools import generate_monte_carlo_ellipses, import_optional_dependency
+from .plot_helpers import show_or_save_plot
 
 
 class _MonteCarloPlots:
@@ -146,6 +147,29 @@ class _MonteCarloPlots:
             )
         else:
             plt.show()
+
+    def apogee_distribution(self, bins=30, *, filename=None):
+        """Plot apogee histogram with Gaussian fit and mode marker."""
+
+        apogees = np.array(self.monte_carlo.results.get("apogee", []))
+        if len(apogees) == 0:
+            raise ValueError("No apogee data found.")
+
+        counts, edges, _ = plt.hist(apogees, bins=bins, alpha=0.6, label="Apogee")
+        mu = np.mean(apogees)
+        sigma = np.std(apogees)
+        x = np.linspace(edges[0], edges[-1], 100)
+        pdf = (1 / (sigma * np.sqrt(2 * np.pi))) * np.exp(-0.5 * ((x - mu) / sigma) ** 2)
+        pdf *= len(apogees) * (edges[1] - edges[0])
+        plt.plot(x, pdf, color="red", label="Gaussian")
+        mode_idx = np.argmax(counts)
+        mode_val = (edges[mode_idx] + edges[mode_idx + 1]) / 2
+        plt.axvline(mode_val, color="k", linestyle="--", label=f"Mode {mode_val:.1f} m")
+        plt.xlabel("Apogee (m)")
+        plt.ylabel("Count")
+        plt.title("Apogee Distribution")
+        plt.legend()
+        show_or_save_plot(filename)
 
     def all(self, keys=None):
         """

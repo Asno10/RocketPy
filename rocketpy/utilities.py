@@ -675,6 +675,203 @@ def liftoff_speed_by_mass(flight, min_mass, max_mass, points=10, plot=True):
     return retfunc
 
 
+def optimize_ballast_weights(
+    flight,
+    mass_each,
+    position,
+    target_apogee,
+    max_weights=10,
+):
+    """Find the number of ballast weights required to reach a target apogee.
+
+    Parameters
+    ----------
+    flight : rocketpy.Flight
+        Base flight used as reference.
+    mass_each : float
+        Mass of each ballast weight in kilograms.
+    position : float
+        Position of the ballast weights along the rocket axis.
+    target_apogee : float
+        Desired apogee above ground level in meters.
+    max_weights : int, optional
+        Maximum number of ballast weights to evaluate, by default 10.
+
+    Returns
+    -------
+    tuple
+        Tuple ``(best_n, best_apogee)`` with the selected number of weights and
+        the achieved apogee.
+    """
+
+    rocket = flight.rocket
+    base_mass = rocket._base_mass
+    base_cm = rocket._base_cm_no_motor
+
+    best_n = 0
+    best_apogee = None
+    best_diff = float("inf")
+
+    for n in range(max_weights + 1):
+        # Reset rocket to base state
+        rocket.mass = base_mass
+        rocket.center_of_mass_without_motor = base_cm
+        if n:
+            rocket.add_ballast(mass_each, n, position)
+        else:
+            rocket.ballast = None
+            rocket.evaluate_dry_mass()
+            rocket.evaluate_structural_mass_ratio()
+            rocket.evaluate_total_mass()
+            rocket.evaluate_center_of_dry_mass()
+            rocket.evaluate_center_of_mass()
+            rocket.evaluate_reduced_mass()
+            rocket.evaluate_thrust_to_weight()
+            rocket.evaluate_center_of_pressure()
+            rocket.evaluate_static_margin()
+
+        test_flight = Flight(
+            rocket=rocket,
+            environment=flight.env,
+            rail_length=flight.rail_length,
+            inclination=flight.inclination,
+            heading=flight.heading,
+            terminate_on_apogee=True,
+        )
+        apogee_agl = test_flight.apogee - flight.env.elevation
+        diff = abs(apogee_agl - target_apogee)
+        if diff < best_diff:
+            best_diff = diff
+            best_n = n
+            best_apogee = apogee_agl
+
+    # Apply best configuration to the rocket
+    rocket.mass = base_mass
+    rocket.center_of_mass_without_motor = base_cm
+    if best_n:
+        rocket.add_ballast(mass_each, best_n, position)
+    else:
+        rocket.ballast = None
+        rocket.evaluate_dry_mass()
+        rocket.evaluate_structural_mass_ratio()
+        rocket.evaluate_total_mass()
+        rocket.evaluate_center_of_dry_mass()
+        rocket.evaluate_center_of_mass()
+        rocket.evaluate_reduced_mass()
+        rocket.evaluate_thrust_to_weight()
+        rocket.evaluate_center_of_pressure()
+        rocket.evaluate_static_margin()
+
+    return best_n, best_apogee
+
+
+def optimize_ballast_weights_mode(
+    flight,
+    mass_each,
+    position,
+    target_apogee,
+    max_weights=10,
+    simulations=10,
+):
+    """Find ballast configuration using Monte Carlo mode of the apogee.
+
+    Parameters
+    ----------
+    flight : rocketpy.Flight
+        Base flight used as reference.
+    mass_each : float
+        Mass of each ballast weight in kilograms.
+    position : float
+        Position of the ballast weights along the rocket axis.
+    target_apogee : float
+        Desired apogee above ground level in meters.
+    max_weights : int, optional
+        Maximum number of ballast weights to evaluate. Default is 10.
+    simulations : int, optional
+        Number of Monte Carlo runs for each configuration. Default is 10.
+
+    Returns
+    -------
+    tuple
+        Tuple ``(best_n, best_mode)`` with the selected number of weights and
+        the achieved apogee mode.
+    """
+
+    from rocketpy.stochastic import (
+        StochasticEnvironment,
+        StochasticFlight,
+        StochasticRocket,
+    )
+    from rocketpy.simulation import MonteCarlo
+
+    rocket = flight.rocket
+    base_mass = rocket._base_mass
+    base_cm = rocket._base_cm_no_motor
+
+    best_n = 0
+    best_mode = None
+    best_diff = float("inf")
+
+    for n in range(max_weights + 1):
+        rocket.mass = base_mass
+        rocket.center_of_mass_without_motor = base_cm
+        if n:
+            rocket.add_ballast(mass_each, n, position)
+        else:
+            rocket.ballast = None
+            rocket.evaluate_dry_mass()
+            rocket.evaluate_structural_mass_ratio()
+            rocket.evaluate_total_mass()
+            rocket.evaluate_center_of_dry_mass()
+            rocket.evaluate_center_of_mass()
+            rocket.evaluate_reduced_mass()
+            rocket.evaluate_thrust_to_weight()
+            rocket.evaluate_center_of_pressure()
+            rocket.evaluate_static_margin()
+
+        base_flight = Flight(
+            rocket=rocket,
+            environment=flight.env,
+            rail_length=flight.rail_length,
+            inclination=flight.inclination,
+            heading=flight.heading,
+            terminate_on_apogee=True,
+        )
+
+        s_env = StochasticEnvironment(environment=flight.env)
+        s_rocket = StochasticRocket(rocket=rocket)
+        s_flight = StochasticFlight(base_flight)
+        mc = MonteCarlo("ballast_opt", s_env, s_rocket, s_flight)
+        mc.simulate(number_of_simulations=simulations, append=False)
+
+        apogees = np.array(mc.results["apogee"]) - flight.env.elevation
+        counts, edges = np.histogram(apogees, bins=20)
+        mode = (edges[np.argmax(counts)] + edges[np.argmax(counts) + 1]) / 2
+        diff = abs(mode - target_apogee)
+        if diff < best_diff:
+            best_diff = diff
+            best_n = n
+            best_mode = mode
+
+    rocket.mass = base_mass
+    rocket.center_of_mass_without_motor = base_cm
+    if best_n:
+        rocket.add_ballast(mass_each, best_n, position)
+    else:
+        rocket.ballast = None
+        rocket.evaluate_dry_mass()
+        rocket.evaluate_structural_mass_ratio()
+        rocket.evaluate_total_mass()
+        rocket.evaluate_center_of_dry_mass()
+        rocket.evaluate_center_of_mass()
+        rocket.evaluate_reduced_mass()
+        rocket.evaluate_thrust_to_weight()
+        rocket.evaluate_center_of_pressure()
+        rocket.evaluate_static_margin()
+
+    return best_n, best_mode
+
+
 def get_instance_attributes(instance):
     """Returns a dictionary with all attributes of a given instance.
 

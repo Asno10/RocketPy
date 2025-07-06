@@ -240,13 +240,13 @@ class Rocket:
             entry to the Function class. See help(Function) for more
             information. If int or float is given, it is assumed constant. If
             callable, string or array is given, it must be a function of Mach
-            number only.
+            number or a function of Mach number and altitude.
         power_on_drag : int, float, callable, string, array
             Rocket's drag coefficient when the motor is on. Can be given as an
             entry to the Function class. See help(Function) for more
             information. If int or float is given, it is assumed constant. If
             callable, string or array is given, it must be a function of Mach
-            number only.
+            number or a function of Mach number and altitude.
         center_of_mass_without_motor : int, float
             Position, in m, of the rocket's center of mass without motor
             relative to the rocket's coordinate system. Default is 0, which
@@ -298,6 +298,10 @@ class Rocket:
         self.center_of_mass_without_motor = center_of_mass_without_motor
         self.radius = radius
         self.area = np.pi * self.radius**2
+        # store initial values for use when adding ballast
+        self._base_mass = mass
+        self._base_cm_no_motor = center_of_mass_without_motor
+        self.ballast = None
 
         # Eccentricity data initialization
         self.cm_eccentricity_x = 0
@@ -336,20 +340,33 @@ class Rocket:
         )
 
         # Define aerodynamic drag coefficients
-        self.power_off_drag = Function(
-            power_off_drag,
-            "Mach Number",
-            "Drag Coefficient with Power Off",
-            "linear",
-            "constant",
-        )
-        self.power_on_drag = Function(
-            power_on_drag,
-            "Mach Number",
-            "Drag Coefficient with Power On",
-            "linear",
-            "constant",
-        )
+        self.power_off_drag = Function(power_off_drag)
+        self.power_off_drag.set_interpolation("linear")
+        self.power_off_drag.set_extrapolation("constant")
+        dim_off = self.power_off_drag.get_domain_dim()
+        if dim_off == 1:
+            self.power_off_drag.set_inputs(["Mach Number"])
+        elif dim_off == 2:
+            self.power_off_drag.set_inputs(["Mach Number", "Altitude (m)"])
+        else:
+            raise TypeError(
+                "power_off_drag must depend on Mach number or Mach number and altitude"
+            )
+        self.power_off_drag.set_outputs("Drag Coefficient with Power Off")
+
+        self.power_on_drag = Function(power_on_drag)
+        self.power_on_drag.set_interpolation("linear")
+        self.power_on_drag.set_extrapolation("constant")
+        dim_on = self.power_on_drag.get_domain_dim()
+        if dim_on == 1:
+            self.power_on_drag.set_inputs(["Mach Number"])
+        elif dim_on == 2:
+            self.power_on_drag.set_inputs(["Mach Number", "Altitude (m)"])
+        else:
+            raise TypeError(
+                "power_on_drag must depend on Mach number or Mach number and altitude"
+            )
+        self.power_on_drag.set_outputs("Drag Coefficient with Power On")
 
         # Create a, possibly, temporary empty motor
         # self.motors = Components()  # currently unused, only 1 motor is supported
@@ -991,6 +1008,43 @@ class Rocket:
         self.evaluate_static_margin()
         self.evaluate_com_to_cdm_function()
         self.evaluate_nozzle_gyration_tensor()
+
+    def add_ballast(self, mass_each, number=1, position=0):
+        """Adds a ballast weight to the rocket and updates inertial quantities.
+
+        Parameters
+        ----------
+        mass_each : float
+            Mass of each ballast weight in kilograms.
+        number : int, optional
+            Number of ballast weights installed, by default 1.
+        position : float, optional
+            Position along the rocket coordinate system, by default 0.
+
+        Returns
+        -------
+        None
+        """
+        from .ballast import Ballast
+
+        self.ballast = Ballast(mass_each, number, position)
+        prev_mass = self.mass
+        prev_cm = self.center_of_mass_without_motor
+        ballast_mass = self.ballast.mass
+        self.mass += ballast_mass
+        self.center_of_mass_without_motor = (
+            prev_cm * prev_mass + position * ballast_mass
+        ) / (prev_mass + ballast_mass)
+
+        self.evaluate_dry_mass()
+        self.evaluate_structural_mass_ratio()
+        self.evaluate_total_mass()
+        self.evaluate_center_of_dry_mass()
+        self.evaluate_center_of_mass()
+        self.evaluate_reduced_mass()
+        self.evaluate_thrust_to_weight()
+        self.evaluate_center_of_pressure()
+        self.evaluate_static_margin()
 
     def __add_single_surface(self, surface, position):
         """Adds a single aerodynamic surface to the rocket. Makes checks for

@@ -23,3 +23,14 @@ def test_create_object(stochastic_calisto):
     """
     obj = stochastic_calisto.create_object()
     assert isinstance(obj, Rocket)
+
+
+def test_validate_drag_table(simple_rocket_2d_drag):
+    from rocketpy.stochastic import StochasticRocket
+
+    table = [[0, 0, 0.5], [1, 1000, 0.4]]
+    rocket = StochasticRocket(
+        rocket=simple_rocket_2d_drag,
+        power_on_drag=[table],
+    )
+    assert isinstance(rocket, StochasticRocket)

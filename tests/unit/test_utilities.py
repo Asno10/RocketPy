@@ -4,7 +4,7 @@ from unittest.mock import patch
 import numpy as np
 import pytest
 
-from rocketpy import Function, utilities
+from rocketpy import Function, Flight, utilities
 
 
 @pytest.mark.parametrize(
@@ -258,3 +258,53 @@ def test_load_from_rpy(mock_show):  # pylint: disable=unused-argument
     )
     assert loaded_flight.info() is None
     assert loaded_flight.all_info() is None
+
+
+def test_optimize_ballast_weights(calisto, example_plain_env):
+    flight = Flight(
+        environment=example_plain_env,
+        rocket=calisto,
+        rail_length=5.2,
+        inclination=85,
+        heading=0,
+        terminate_on_apogee=True,
+    )
+    base_apogee = flight.apogee - example_plain_env.elevation
+    n, alt = utilities.optimize_ballast_weights(
+        flight,
+        mass_each=0.5,
+        position=0,
+        target_apogee=base_apogee - 10,
+        max_weights=2,
+    )
+    assert isinstance(n, int)
+    assert alt is not None
+
+
+@patch("rocketpy.simulation.monte_carlo.MonteCarlo.simulate", autospec=True)
+def test_optimize_ballast_weights_mode(mock_sim, calisto, example_plain_env):
+    flight = Flight(
+        environment=example_plain_env,
+        rocket=calisto,
+        rail_length=5.2,
+        inclination=85,
+        heading=0,
+        terminate_on_apogee=True,
+    )
+
+    def fake_sim(self, *args, **kw):
+        self.results = {"apogee": [flight.apogee - 5, flight.apogee + 5]}
+
+    mock_sim.side_effect = fake_sim
+
+    base_apogee = flight.apogee - example_plain_env.elevation
+    n, mode = utilities.optimize_ballast_weights_mode(
+        flight,
+        mass_each=0.5,
+        position=0,
+        target_apogee=base_apogee - 5,
+        max_weights=1,
+        simulations=1,
+    )
+    assert isinstance(n, int)
+    assert isinstance(mode, float)

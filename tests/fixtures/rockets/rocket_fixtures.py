@@ -28,6 +28,29 @@ def calisto_motorless():
 
 
 @pytest.fixture
+def simple_rocket_2d_drag():
+    """Rocket with drag curves depending on Mach and altitude."""
+
+    table = np.array(
+        [
+            [0, 0, 0.5],
+            [0, 1000, 0.4],
+            [1, 0, 0.3],
+            [1, 1000, 0.2],
+        ]
+    )
+
+    return Rocket(
+        radius=0.05,
+        mass=10,
+        inertia=(1, 1, 1),
+        power_off_drag=table,
+        power_on_drag=table,
+        center_of_mass_without_motor=0,
+    )
+
+
+@pytest.fixture
 def calisto(calisto_motorless, cesaroni_m1670):  # old name: rocket
     """Create a simple object of the Rocket class to be used in the tests. This
     is the same rocket that has been used in the getting started guide for

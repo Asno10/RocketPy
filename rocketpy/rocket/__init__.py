@@ -14,4 +14,5 @@ from rocketpy.rocket.aero_surface import (
 )
 from rocketpy.rocket.components import Components
 from rocketpy.rocket.parachute import Parachute
+from rocketpy.rocket.ballast import Ballast
 from rocketpy.rocket.rocket import Rocket

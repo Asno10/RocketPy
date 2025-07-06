@@ -102,6 +102,9 @@ def test_monte_carlo_plots(mock_show, monte_carlo_calisto_pre_loaded):
         monte_carlo_calisto_pre_loaded.compare_ellipses(monte_carlo_calisto_pre_loaded)
         is None
     )
+    assert (
+        monte_carlo_calisto_pre_loaded.plots.apogee_distribution() is None
+    )
 
 
 def test_monte_carlo_export_ellipses_to_kml(monte_carlo_calisto_pre_loaded):
