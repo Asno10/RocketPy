@@ -12,7 +12,8 @@ Defining a Rocket in RocketPy is simple and requires a few steps:
 4. Add, if desired, parachutes;
 5. Set, if desired, rail guides;
 6. See results.
-7. Inertia Tensors.
+7. Add, if desired, ballast weights;
+8. Inertia Tensors.
 
 Lets go through each of these steps in detail.
 
@@ -117,6 +118,11 @@ For altitude based curves the file should look like:
     However, if you do not have access to these, you can always use
     `RASAero II <https://www.rasaero.com/>`_ software. In there you need
     only define the geometry of the rocket and access *AeroPlots*.
+
+The :py:meth:`rocketpy.plots.rocket_plots._RocketPlots.drag_curves` method
+automatically detects whether the drag curves depend on altitude. When
+altitude data is present, it renders a 3‑D surface of Mach, altitude and drag
+coefficient.
 
 2. Adding a Motor
 -----------------
@@ -442,7 +448,19 @@ The lets check all the information available about the rocket:
 
     calisto.all_info()
 
-7. Inertia Tensors
+7. Adding Ballast Weights
+-------------------------
+
+Use :py:meth:`rocketpy.Rocket.add_ballast` to install removable ballast
+weights on the rocket. The method requires the mass of each weight, the
+number of weights and the position along the rocket's axis. For example,
+to install four 250 gram weights 0.20 meters from the reference point::
+
+    calisto.add_ballast(mass_each=0.25, number=4, position=0.20)
+
+This will update the rocket mass and center of mass accordingly.
+
+8. Inertia Tensors
 ------------------
 
 The inertia tensor relative to the center of dry mass of the rocket at a
